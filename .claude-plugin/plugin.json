@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "description": "Headless multi-stage code change pipeline — research, plan, implement, and merge autonomously via tmux and git worktrees.",
   "author": { "name": "Kevin Kirchner" },
-  "homepage": "https://github.com/codefilabs/autorun-plugin",
-  "repository": "https://github.com/codefilabs/autorun-plugin",
+  "homepage": "https://github.com/codefilabs/autorun",
+  "repository": "https://github.com/codefilabs/autorun",
   "license": "MIT",
   "keywords": ["autorun", "pipeline", "orchestration", "tmux", "worktree", "headless", "autonomous"]
 }
