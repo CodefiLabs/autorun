@@ -100,7 +100,7 @@ rm -f "$CMD_FILE" "$SELF"
 log "Starting claude at $(date)"
 log "Command: ${CLAUDE_CMD:0:200}$([ ${#CLAUDE_CMD} -gt 200 ] && echo '...')"
 
-claude "$CLAUDE_CMD"
+claude --model claude-sonnet-4-6 "$CLAUDE_CMD"
 EXIT_CODE=$?
 log "claude exited with code $EXIT_CODE at $(date)"
 
