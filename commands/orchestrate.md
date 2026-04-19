@@ -164,6 +164,25 @@ tmux new-session -d -s "$SESSION_NAME" -n "s${STAGE_NUM}" \
 This kicks off the pipeline: `start.md` triages → routes to appropriate pipeline → `merge`.
 - Success/failure status and any error details
 
+### Step 4: Launch Orchestration Monitor
+
+After all wave 1 sessions are created, launch the monitor in its own tmux session:
+
+```bash
+MONITOR_SESSION="${PROJECT_SLUG}_monitor"
+
+tmux new-session -d -s "$MONITOR_SESSION" -n "monitor" \
+  "bash ${CLAUDE_PLUGIN_ROOT}/scripts/monitor-orchestration.sh $ORCH_DIR"
+```
+
+The monitor runs autonomously alongside the orchestration:
+- Takes two capture-pane snapshots ~60s apart for each active session to detect stalls (not just one — the diff confirms whether output is actually changing)
+- Auto-sends `continue` to sessions stuck at an idle `❯` prompt (common after API errors or rate limits)
+- Detects dead sessions (status says active but tmux session is gone)
+- Detects wave gaps (current wave complete but next wave not launched)
+- Logs everything to `~/.autorun/logs/${PROJECT_SLUG}-monitor.log`
+- Exits automatically when all stages reach a terminal state (completed or failed)
+
 ## Output
 
 After all Tasks complete, print a summary:
@@ -190,8 +209,10 @@ Orchestration launched:
     Wave 3: stages 5
     ...
 
-Monitor: tmux list-sessions | grep ${PROJECT_SLUG}
-Status:  cat ~/.autorun/orchestration/<plan-name>/status.json
+Monitor session: ${PROJECT_SLUG}_monitor
+Monitor log:     ~/.autorun/logs/${PROJECT_SLUG}-monitor.log
+Sessions:        tmux list-sessions | grep ${PROJECT_SLUG}
+Status:          cat ~/.autorun/orchestration/<plan-name>/status.json
 ```
 
 ## How It Connects
