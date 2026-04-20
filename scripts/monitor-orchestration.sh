@@ -238,8 +238,10 @@ run_check() {
 
         if diff -q "$SNAP_DIR/${session}.snap1" "$SNAP_DIR/${session}.snap2" >/dev/null 2>&1; then
             log "  ⚠ NO CHANGE — likely stalled"
+            printf '%s\n' "$(python3 -c "import json,datetime; print(json.dumps({'ts':datetime.datetime.now(datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ'),'type':'stall_detected','session':'$session','stage':'$session'.split('_stage-')[-1] if '_stage-' in '$session' else None,'check_num':$check_num,'orch_dir':'$ORCH_DIR'}))")" >> "$ORCH_DIR/events.jsonl" 2>/dev/null
             if is_at_idle_prompt "$SNAP_DIR/${session}.snap2"; then
                 tmux send-keys -t "$session" "continue" Enter 2>/dev/null
+                printf '%s\n' "$(python3 -c "import json,datetime; print(json.dumps({'ts':datetime.datetime.now(datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ'),'type':'stall_continue_sent','session':'$session','stage':'$session'.split('_stage-')[-1] if '_stage-' in '$session' else None,'check_num':$check_num,'orch_dir':'$ORCH_DIR'}))")" >> "$ORCH_DIR/events.jsonl" 2>/dev/null
                 log "  ↳ Sent 'continue' to $session"
             fi
         else
@@ -254,6 +256,7 @@ run_check() {
     log "  $wave_status"
     if echo "$wave_status" | grep -q "WAVE_GAP"; then
         log "  ⚠ ATTENTION: Next wave needs manual launch or merge.md didn't fire"
+        printf '%s\n' "$(python3 -c "import json,datetime; print(json.dumps({'ts':datetime.datetime.now(datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ'),'type':'wave_gap_detected','detail':'''$wave_status''','check_num':$check_num,'orch_dir':'$ORCH_DIR'}))")" >> "$ORCH_DIR/events.jsonl" 2>/dev/null
     fi
 
     local dead
@@ -261,7 +264,10 @@ run_check() {
     if [ -n "$dead" ]; then
         log ""
         log "Dead sessions:"
-        echo "$dead" | while IFS= read -r line; do log "  $line"; done
+        echo "$dead" | while IFS= read -r line; do
+            log "  $line"
+            printf '%s\n' "$(python3 -c "import json,datetime,re; m=re.search(r'Stage\s+(\d+)','''$line'''); print(json.dumps({'ts':datetime.datetime.now(datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ'),'type':'session_dead','stage':int(m.group(1)) if m else None,'detail':'''$line''','check_num':$check_num,'orch_dir':'$ORCH_DIR'}))")" >> "$ORCH_DIR/events.jsonl" 2>/dev/null
+        done
     fi
 
     separator
@@ -290,6 +296,9 @@ while true; do
         separator
         log "ALL STAGES COMPLETED"
         get_stage_statuses | while IFS= read -r line; do log "  $line"; done
+        log ""
+        log "Running stats aggregation..."
+        python3 "$(dirname "$0")/orchestration-stats.py" "$STATUS_FILE" "$LOG_FILE" "$PROJECT_ROOT" 2>&1 | while IFS= read -r line; do log "  $line"; done || true
         separator
         log "MONITOR EXITING — orchestration complete"
         exit 0
@@ -297,6 +306,9 @@ while true; do
         separator
         log "ORCHESTRATION FINISHED WITH FAILURES: ${terminal_state#DONE_WITH_FAILURES:}"
         get_stage_statuses | while IFS= read -r line; do log "  $line"; done
+        log ""
+        log "Running stats aggregation..."
+        python3 "$(dirname "$0")/orchestration-stats.py" "$STATUS_FILE" "$LOG_FILE" "$PROJECT_ROOT" 2>&1 | while IFS= read -r line; do log "  $line"; done || true
         separator
         log "MONITOR EXITING — all stages in terminal state"
         exit 1
