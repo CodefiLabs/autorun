@@ -120,37 +120,16 @@ if [[ "$CLOSE_CALLER" == "close" && -n "${TMUX:-}" ]]; then
   OLD_WINDOW_ID=$(tmux display-message -p '#{window_id}')
 fi
 
-# Detect if the user's terminal is inside tmux (Bash tool strips $TMUX).
-# Check if the tmux server is running and has an attached client.
-USER_SESSION=""
-if [[ -z "${TMUX:-}" ]]; then
-  # Find the most recently attached session as the best guess for the user's session
-  USER_SESSION=$(tmux list-sessions -F '#{session_attached} #{session_name}' 2>/dev/null \
-    | awk '$1 > 0 {print $2; exit}' || true)
-fi
-
-# Determine which session to add a window to
+# Determine how to launch the next step:
+#   TARGET_SESSION given → add a window inside that session (orchestrated stage sessions)
+#   No TARGET_SESSION  → always create a new named tmux session (keeps user's terminal clean)
 NEW_WINDOW_TARGET=""
 if [[ -n "$TARGET_SESSION" ]] && tmux has-session -t "$TARGET_SESSION" 2>/dev/null; then
   tmux new-window -t "$TARGET_SESSION" -n "$WINDOW_NAME" \
     ${WORK_DIR:+-c "$WORK_DIR"} \
     "$WRAPPER"
   NEW_WINDOW_TARGET="${TARGET_SESSION}:${WINDOW_NAME}"
-elif [[ -n "${TMUX:-}" ]]; then
-  tmux new-window -n "$WINDOW_NAME" \
-    ${WORK_DIR:+-c "$WORK_DIR"} \
-    "$WRAPPER"
-  NEW_WINDOW_TARGET="${WINDOW_NAME}"
-elif [[ -n "$USER_SESSION" ]]; then
-  # Claude's Bash tool doesn't set $TMUX, but the user is in tmux.
-  # Create a new window in their attached session instead of a detached one.
-  tmux new-window -t "$USER_SESSION" -n "$WINDOW_NAME" \
-    ${WORK_DIR:+-c "$WORK_DIR"} \
-    "$WRAPPER"
-  NEW_WINDOW_TARGET="${USER_SESSION}:${WINDOW_NAME}"
-  echo "Created window '$WINDOW_NAME' in tmux session: $USER_SESSION"
 else
-  # Truly not in tmux — create a detached session
   SESSION_NAME="$WINDOW_NAME"
   if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
     SESSION_NAME="${WINDOW_NAME}-$(date +%s)"
