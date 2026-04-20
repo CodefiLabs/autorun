@@ -140,6 +140,24 @@ The Task should:
    }
    ```
 
+4. **Emit `orchestration_started` event** to `$ORCH_DIR/events.jsonl` alongside the status.json write:
+   ```python
+   import json, datetime, os
+   events_path = os.path.join(ORCH_DIR, "events.jsonl")
+   with open(events_path, "a") as f:
+       f.write(json.dumps({
+           "ts": datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+           "type": "orchestration_started",
+           "plan_name": plan_name,
+           "project_slug": project_slug,
+           "project_root": project_root,
+           "total_stages": len(stages),
+           "total_waves": len(waves),
+           "waves": waves,
+           "orch_dir": ORCH_DIR,
+       }) + "\n")
+   ```
+
 The Task should return:
 - `ORCH_DIR` - absolute path to orchestration directory
 - `STATUS_FILE` - absolute path to status.json
