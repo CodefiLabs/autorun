@@ -120,6 +120,9 @@ def compute_timeline(status):
             pc = parse_ts(pdata.get('completed_at'))
             phase_durations[pname] = duration_s(ps, pc, now)
 
+        impl_ph = st.get('phases', {}).get('implement', {})
+        impl_total = impl_ph.get('total_phases') if isinstance(impl_ph, dict) else None
+
         stage_timelines[sid] = {
             'name': st.get('name', f'Stage {sid}'),
             'status': st.get('status', 'unknown'),
@@ -128,6 +131,7 @@ def compute_timeline(status):
             'duration_s': duration_s(s_start, s_end, now),
             'in_progress': s_end is None,
             'phases': phase_durations,
+            'implement_phases': impl_total,
             'depends_on': st.get('depends_on', []),
         }
 
@@ -441,6 +445,15 @@ def render_terminal(m):
         prog = " (in progress)" if w.get('in_progress') else ""
         lines.append(f"  Wave {w['wave']}: {fmt_duration(w['duration_s'])}{prog}  [{len(w['stages'])} stages]")
     lines.append("")
+    lines.append("  Per-Stage")
+    lines.append("  " + "-" * 56)
+    for sid in sorted(tl['stages'].keys(), key=int):
+        st = tl['stages'][sid]
+        impl = st.get('implement_phases')
+        impl_str = f"  [{impl} impl phase{'s' if impl != 1 else ''}]" if impl else ""
+        icon = "✓" if st['status'] == 'completed' else ("✗" if st['status'] == 'failed' else "…")
+        lines.append(f"  Stage {int(sid):>2} {icon}  {st['name']:<35} {fmt_duration(st['duration_s'])}{impl_str}")
+    lines.append("")
 
     if not code.get('error'):
         lines.append("  CODE")
@@ -518,8 +531,8 @@ def render_markdown(m):
 
     lines.append("### Per-Stage")
     lines.append("")
-    lines.append("| Stage | Name | Duration | Status | Phases |")
-    lines.append("|-------|------|----------|--------|--------|")
+    lines.append("| Stage | Name | Duration | Status | Impl Phases | Phase Durations |")
+    lines.append("|-------|------|----------|--------|-------------|-----------------|")
     for sid in sorted(tl['stages'].keys(), key=int):
         st = tl['stages'][sid]
         phases_str = ', '.join(
@@ -529,7 +542,8 @@ def render_markdown(m):
         dur_str = fmt_duration(st['duration_s'])
         if st['in_progress']:
             dur_str += " (in progress)"
-        lines.append(f"| {sid} | {st['name']} | {dur_str} | {status_str} | {phases_str} |")
+        impl = st.get('implement_phases') or ''
+        lines.append(f"| {sid} | {st['name']} | {dur_str} | {status_str} | {impl} | {phases_str} |")
     lines.append("")
 
     lines.append("## Code")
