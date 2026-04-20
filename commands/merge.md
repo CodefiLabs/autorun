@@ -196,6 +196,29 @@ The Task should:
        json.dump(status, f, indent=2)
    os.rename(tmp, "ORCH_DIR/status.json")
 
+   # Emit structured events to events.jsonl
+   events_path = os.path.join("ORCH_DIR", "events.jsonl")
+   now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+   with open(events_path, "a") as f:
+       f.write(json.dumps({
+           "ts": now, "type": "merge_complete",
+           "stage": STAGE_NUM,
+           "wave": status["current_wave"],
+           "plan_name": status.get("plan_name"),
+           "project_slug": status.get("project_slug"),
+           "orch_dir": "ORCH_DIR",
+       }) + "\n")
+       if all_complete:
+           f.write(json.dumps({
+               "ts": now, "type": "wave_complete",
+               "wave": status["current_wave"],
+               "stages": current_wave_stages,
+               "has_more_waves": has_more_waves,
+               "plan_name": status.get("plan_name"),
+               "project_slug": status.get("project_slug"),
+               "orch_dir": "ORCH_DIR",
+           }) + "\n")
+
    print(json.dumps({
        "all_wave_complete": all_complete,
        "has_more_waves": has_more_waves,
@@ -273,6 +296,20 @@ The Task should:
    with open(tmp, 'w') as f:
        json.dump(data, f, indent=2)
    os.rename(tmp, '$ORCH_DIR/status.json')
+
+   # Emit wave_started event
+   import datetime as _dt
+   events_path = os.path.join('$ORCH_DIR', 'events.jsonl')
+   with open(events_path, 'a') as f:
+       f.write(json.dumps({
+           'ts': _dt.datetime.now(_dt.UTC).strftime('%Y-%m-%dT%H:%M:%SZ'),
+           'type': 'wave_started',
+           'wave': data['current_wave'],
+           'stages': data['waves'][data['current_wave'] - 1],
+           'plan_name': data.get('plan_name'),
+           'project_slug': data.get('project_slug'),
+           'orch_dir': '$ORCH_DIR',
+       }) + '\n')
    "
    ```
 
@@ -343,10 +380,24 @@ The Task should:
    ========================================
    ```
 
-3. **Update status.json** with overall completion:
+3. **Update status.json** with overall completion and emit `orchestration_complete` event:
    ```python
    status["status"] = "completed"
    status["completed_at"] = datetime.now(timezone.utc).isoformat()
+   # Write status.json atomically
+   # ...
+   # Emit orchestration_complete event
+   events_path = os.path.join(ORCH_DIR, "events.jsonl")
+   with open(events_path, "a") as f:
+       f.write(json.dumps({
+           "ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+           "type": "orchestration_complete",
+           "plan_name": status.get("plan_name"),
+           "project_slug": status.get("project_slug"),
+           "total_stages": len(status["stages"]),
+           "total_waves": len(status["waves"]),
+           "orch_dir": ORCH_DIR,
+       }) + "\n")
    ```
 
 4. **Optionally chain to integration check**: If the status.json contains an `integration_check` field (a command or plan path), launch it:
