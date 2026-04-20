@@ -58,6 +58,22 @@ data['stages']['$STAGE_NUMBER'] = stage
 
 with open('$STATUS_FILE', 'w') as f:
     json.dump(data, f, indent=2)
+
+import os, datetime
+events_path = os.path.join(os.path.dirname('$STATUS_FILE'), 'events.jsonl')
+event = {
+    'ts': datetime.datetime.now(datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ'),
+    'type': 'phase_status',
+    'stage': int('$STAGE_NUMBER'),
+    'phase': '$PHASE_NAME',
+    'field': '$FIELD',
+    'value': val,
+    'plan_name': data.get('plan_name'),
+    'project_slug': data.get('project_slug'),
+    'orch_dir': os.path.dirname('$STATUS_FILE'),
+}
+with open(events_path, 'a') as f:
+    f.write(json.dumps(event) + '\n')
 "
 
 rmdir "$LOCK_DIR" 2>/dev/null
