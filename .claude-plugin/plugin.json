@@ -1,6 +1,6 @@
 {
   "name": "autorun",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Headless multi-stage code change pipeline — research, plan, implement, and merge autonomously via tmux and git worktrees.",
   "author": { "name": "Kevin Kirchner" },
   "homepage": "https://github.com/codefilabs/autorun",
