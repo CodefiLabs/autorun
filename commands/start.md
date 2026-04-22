@@ -179,6 +179,25 @@ case $TIER in
 esac
 ```
 
+### Step 3: Start Monitor (non-EPIC tiers only)
+
+After chaining to the pipeline, start the orchestration monitor as a background process **in the current session** if an orchestration directory exists. This lets the user stay here and watch progress without attaching to any other session.
+
+**Skip this step for EPIC tier** — `orchestrate.md` starts the monitor after launching wave 1.
+
+```bash
+# Only start if orchestration exists and monitor isn't already running
+ORCH_BASE="$HOME/.autorun/orchestration"
+if find "$ORCH_BASE" -name "status.json" -maxdepth 2 -print -quit 2>/dev/null | grep -q .; then
+  if ! pgrep -f "monitor-orchestration.sh" > /dev/null 2>&1; then
+    bash ${CLAUDE_PLUGIN_ROOT}/scripts/monitor-orchestration.sh &
+    echo "Monitor started (PID $!) — auto-detecting most recent orchestration"
+  else
+    echo "Monitor already running (PID $(pgrep -f monitor-orchestration.sh))"
+  fi
+fi
+```
+
 ## Review File Pattern (EPIC tier only)
 
 **CRITICAL**: For EPIC tier only, when asking user questions, use the review file pattern:

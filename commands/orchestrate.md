@@ -184,16 +184,14 @@ This kicks off the pipeline: `start.md` triages → routes to appropriate pipeli
 
 ### Step 4: Launch Orchestration Monitor
 
-After all wave 1 sessions are created, launch the monitor in its own tmux session:
+After all wave 1 sessions are created, start the monitor as a background process **in the current session** so the user can see progress without attaching elsewhere:
 
 ```bash
-MONITOR_SESSION="${PROJECT_SLUG}_monitor"
-
-tmux new-session -d -s "$MONITOR_SESSION" -n "monitor" \
-  "bash ${CLAUDE_PLUGIN_ROOT}/scripts/monitor-orchestration.sh $ORCH_DIR"
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/monitor-orchestration.sh $ORCH_DIR &
+echo "Monitor started (PID $!) — logging to ~/.autorun/logs/${PROJECT_SLUG}-monitor.log"
 ```
 
-The monitor runs autonomously alongside the orchestration:
+The monitor runs in the background of the current session alongside the orchestration:
 - Takes two capture-pane snapshots ~60s apart for each active session to detect stalls (not just one — the diff confirms whether output is actually changing)
 - Auto-sends `continue` to sessions stuck at an idle `❯` prompt (common after API errors or rate limits)
 - Detects dead sessions (status says active but tmux session is gone)
@@ -227,7 +225,6 @@ Orchestration launched:
     Wave 3: stages 5
     ...
 
-Monitor session: ${PROJECT_SLUG}_monitor
 Monitor log:     ~/.autorun/logs/${PROJECT_SLUG}-monitor.log
 Sessions:        tmux list-sessions | grep ${PROJECT_SLUG}
 Status:          cat ~/.autorun/orchestration/<plan-name>/status.json
