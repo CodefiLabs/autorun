@@ -1,0 +1,29 @@
+{
+  "name": "autorun-claude-plugin",
+  "version": "0.2.1",
+  "description": "\"Headless multi-stage code change pipeline — research, plan, implement, and merge autonomously via tmux and git worktrees.\"",
+  "keywords": [
+    "claude",
+    "claude",
+    "code",
+    "pipeline",
+    "automation",
+    "long-horizon",
+    "tmux"
+  ],
+  "homepage": "https://github.com/CodefiLabs/autorun#readme",
+  "bugs": {
+    "url": "https://github.com/CodefiLabs/autorun/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CodefiLabs/autorun.git"
+  },
+  "license": "MIT",
+  "author": "Kevin Kirchner <kevin@codefiworks.com>",
+  "type": "commonjs",
+  "main": ".claude-plugin/plugin.json",
+  "scripts": {
+    "test": "scripts/doctor.sh"
+  }
+}
