@@ -418,6 +418,11 @@ Run cleanup directly via Bash:
 ```bash
 # Detect if we're in a worktree
 WORKTREE_PATH="$(git rev-parse --show-toplevel)"
+
+# Compute the session name for this stage (for unregistering from the registry)
+PROJECT_SLUG=$(python3 -c "import json; print(json.load(open('$ORCH_DIR/status.json')).get('project_slug', ''))")
+SESSION_NAME="${PROJECT_SLUG}_stage-${STAGE_NUM}"
+
 if [ "$(git rev-parse --git-dir)" != "$(git rev-parse --git-common-dir)" ]; then
   IN_WORKTREE=true
   BRANCH="$(git rev-parse --abbrev-ref HEAD)"
@@ -430,10 +435,8 @@ if [ "$(git rev-parse --git-dir)" != "$(git rev-parse --git-common-dir)" ]; then
   echo "Worktree cleaned up: $WORKTREE_PATH"
 else
   echo "Not in a worktree — skipping worktree removal"
-  if [[ -f "$WORKTREE_PATH/.orchestration.json" ]]; then
-    rm "$WORKTREE_PATH/.orchestration.json"
-    echo ".orchestration.json removed"
-  fi
+  bash ${CLAUDE_PLUGIN_ROOT}/scripts/unregister-orchestration.sh "$WORKTREE_PATH" "$SESSION_NAME"
+  echo "Unregistered $SESSION_NAME from $WORKTREE_PATH/.orchestration.json"
 fi
 ```
 
