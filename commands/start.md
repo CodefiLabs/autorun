@@ -19,6 +19,19 @@ Either:
 
 Do NOT use AskUserQuestion — this is a headless autorun command (except for EPIC tier, which uses the review file pattern).
 
+### Orchestration detection helper
+
+Run this once at the top of execution to detect whether this session is part of an active orchestration. Sets `$IN_ORCHESTRATED` and populates `$STAGE_NUM`/`$ORCH_DIR`/`$STATUS_FILE`/`$SESSION_NAME`/`$CHAIN_ON_COMPLETE` on success:
+
+```bash
+if CTX=$(bash ${CLAUDE_PLUGIN_ROOT}/scripts/get-orchestration-context.sh "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" 2>/dev/null); then
+  eval "$CTX"
+  IN_ORCHESTRATED=true
+else
+  IN_ORCHESTRATED=false
+fi
+```
+
 ### Step 1: Triage
 
 Read any provided files fully. Then perform a self-classification analysis:
@@ -50,17 +63,11 @@ Before routing, derive a `TASK_SLUG` for meaningful tmux session names:
 
 Use `<phase>-<slug>` as the window name for all non-orchestrated chaining commands (e.g. `cp-make-api-call-bug-report`, `research-fix-login-redirect`, `ip-quick-config-fix`).
 
-**In non-orchestrated mode** (task is not a stage context file), clean up any stale `.orchestration.json` left by a prior orchestration run before chaining — otherwise downstream phases will incorrectly treat this repo as an active orchestration stage:
-```bash
-WORKTREE_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/validate-orchestration.sh "$WORKTREE_ROOT" 2>/dev/null || true
-```
-
 #### QUICK → implement_plan directly
 
 Write a minimal inline plan to `~/.autorun/plans/YYYY-MM-DD-quick-<slug>.md`.
 
-**If in orchestrated mode** (`.orchestration.json` exists), include YAML frontmatter with `chain_on_complete`:
+**If in orchestrated mode** (`$IN_ORCHESTRATED` is `true` — i.e. an entry for the current tmux session exists in `.orchestration.json`), include YAML frontmatter with `chain_on_complete`:
 ```
 ---
 chain_on_complete: "/autorun:merge <ORCH_DIR> <STAGE_NUM>"
@@ -160,15 +167,13 @@ ORCH_DIR=<from context>
 PROJECT_SLUG=$(python3 -c "import json; print(json.load(open('$STATUS_FILE')).get('project_slug', ''))")
 SESSION_ARG="${PROJECT_SLUG}_stage-${STAGE_NUM}"
 
-# Write .orchestration.json for downstream pipeline phases
-cat > .orchestration.json << EOF
-{
-  "stage_number": "$STAGE_NUM",
-  "orchestration_dir": "$ORCH_DIR",
-  "session_name": "${PROJECT_SLUG}_stage-${STAGE_NUM}",
-  "chain_on_complete": "/autorun:merge $ORCH_DIR $STAGE_NUM"
-}
-EOF
+# Register this stage's orchestration context in .orchestration.json (session-keyed registry)
+SESSION_NAME="${PROJECT_SLUG}_stage-${STAGE_NUM}"
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/register-orchestration.sh \
+  "$SESSION_NAME" \
+  "$STAGE_NUM" \
+  "$ORCH_DIR" \
+  "/autorun:merge $ORCH_DIR $STAGE_NUM"
 
 # Update status
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/update-phase-status.sh "$STATUS_FILE" "$STAGE_NUM" triage completed_at
