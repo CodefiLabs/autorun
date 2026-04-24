@@ -44,6 +44,12 @@ Route immediately based on classification. No user confirmation except for EPIC.
 
 ### Step 2: Route
 
+Before routing, derive a `TASK_SLUG` for meaningful tmux session names:
+- If task is a **file path**: use the basename without extension, lowercased, spaces/underscores → hyphens, max 30 chars. E.g. `/path/to/make-api-call-bug-report.md` → `make-api-call-bug-report`
+- If task is **plain text**: take the first 3–4 significant words, lowercased, non-alphanumeric → hyphens, max 30 chars. E.g. `Fix the login redirect bug` → `fix-login-redirect-bug`
+
+Use `<phase>-<slug>` as the window name for all non-orchestrated chaining commands (e.g. `cp-make-api-call-bug-report`, `research-fix-login-redirect`, `ip-quick-config-fix`).
+
 #### QUICK → implement_plan directly
 
 Write a minimal inline plan to `~/.autorun/plans/YYYY-MM-DD-quick-<slug>.md`.
@@ -83,21 +89,21 @@ chain_on_complete: "/autorun:merge <ORCH_DIR> <STAGE_NUM>"
 
 Then chain:
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/chain-next.sh "/autorun:implement_plan <plan-path>" "ip" "" "" ""
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/chain-next.sh "/autorun:implement_plan <plan-path>" "ip-$TASK_SLUG" "" "" ""
 ```
 
 #### MEDIUM → create_plan → implement_plan
 
 Chain directly to create_plan with the task description:
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/chain-next.sh "/autorun:create_plan $TASK_DESCRIPTION" "cp" "" "" ""
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/chain-next.sh "/autorun:create_plan $TASK_DESCRIPTION" "cp-$TASK_SLUG" "" "" ""
 ```
 
 #### LARGE → research_codebase → create_plan → implement_plan
 
 Chain to research_codebase with the task description:
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/chain-next.sh "/autorun:research_codebase $TASK_DESCRIPTION" "research" "" "" ""
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/chain-next.sh "/autorun:research_codebase $TASK_DESCRIPTION" "research-$TASK_SLUG" "" "" ""
 ```
 
 #### EPIC → Interactive brainstorm → master plan → orchestrate
@@ -181,20 +187,17 @@ esac
 
 ### Step 3: Start Monitor (non-EPIC tiers only)
 
-After chaining to the pipeline, start the orchestration monitor as a background process **in the current session** if an orchestration directory exists. This lets the user stay here and watch progress without attaching to any other session.
+After chaining to the pipeline, always start the orchestration monitor as a background process **in the current session**. This lets the user stay here and watch progress without attaching to any other session. The monitor auto-detects the most recent orchestration and exits gracefully if none is found.
 
 **Skip this step for EPIC tier** — `orchestrate.md` starts the monitor after launching wave 1.
 
 ```bash
-# Only start if orchestration exists and monitor isn't already running
-ORCH_BASE="$HOME/.autorun/orchestration"
-if find "$ORCH_BASE" -name "status.json" -maxdepth 2 -print -quit 2>/dev/null | grep -q .; then
-  if ! pgrep -f "monitor-orchestration.sh" > /dev/null 2>&1; then
-    bash ${CLAUDE_PLUGIN_ROOT}/scripts/monitor-orchestration.sh &
-    echo "Monitor started (PID $!) — auto-detecting most recent orchestration"
-  else
-    echo "Monitor already running (PID $(pgrep -f monitor-orchestration.sh))"
-  fi
+# Always start monitor if not already running (auto-detects orchestration, exits cleanly if none)
+if ! pgrep -f "monitor-orchestration.sh" > /dev/null 2>&1; then
+  bash ${CLAUDE_PLUGIN_ROOT}/scripts/monitor-orchestration.sh &
+  echo "Monitor started (PID $!) — auto-detecting most recent orchestration"
+else
+  echo "Monitor already running (PID $(pgrep -f monitor-orchestration.sh))"
 fi
 ```
 
