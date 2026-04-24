@@ -29,12 +29,11 @@ You are tasked with conducting comprehensive research across the codebase to ans
 
 ## Phase Audit (orchestrated mode only)
 
-Before starting research, validate `.orchestration.json` in the worktree root is active (not stale from a prior run), then update the phase status:
+Before starting research, look up the orchestration context for this tmux session (silently exits non-zero if not orchestrated, or the entry is stale), then update the phase status:
 ```bash
 WORKTREE_ROOT="$(git rev-parse --show-toplevel)"
-if bash ${CLAUDE_PLUGIN_ROOT}/scripts/validate-orchestration.sh "$WORKTREE_ROOT"; then
-  STAGE_NUM=$(python3 -c "import json; print(json.load(open('$WORKTREE_ROOT/.orchestration.json'))['stage_number'])")
-  STATUS_FILE=$(python3 -c "import json; d=json.load(open('$WORKTREE_ROOT/.orchestration.json')); import os; print(os.path.join(d['orchestration_dir'], 'status.json'))")
+if CTX=$(bash ${CLAUDE_PLUGIN_ROOT}/scripts/get-orchestration-context.sh "$WORKTREE_ROOT" 2>/dev/null); then
+  eval "$CTX"
   bash ${CLAUDE_PLUGIN_ROOT}/scripts/update-phase-status.sh "$STATUS_FILE" "$STAGE_NUM" research started_at
 fi
 ```
@@ -285,14 +284,13 @@ fi
       SESSION_ARG=""
       WINDOW_NAME="cp"
       CLOSE_ARG=""
-      if [[ -f "$WORKTREE_ROOT/.orchestration.json" ]]; then
-        SESSION_ARG=$(python3 -c "import json; print(json.load(open('$WORKTREE_ROOT/.orchestration.json')).get('session_name', ''))")
-        STAGE_NUM=$(python3 -c "import json; print(json.load(open('$WORKTREE_ROOT/.orchestration.json'))['stage_number'])")
+      if CTX=$(bash ${CLAUDE_PLUGIN_ROOT}/scripts/get-orchestration-context.sh "$WORKTREE_ROOT" 2>/dev/null); then
+        eval "$CTX"
+        SESSION_ARG="$SESSION_NAME"
         WINDOW_NAME="s${STAGE_NUM}-cp"
         CLOSE_ARG="close"
 
         # Update phase status
-        STATUS_FILE=$(python3 -c "import json; d=json.load(open('$WORKTREE_ROOT/.orchestration.json')); import os; print(os.path.join(d['orchestration_dir'], 'status.json'))")
         bash ${CLAUDE_PLUGIN_ROOT}/scripts/update-phase-status.sh "$STATUS_FILE" "$STAGE_NUM" research completed_at
       fi
       echo "Session: '${SESSION_ARG:-<none>}', Window: '$WINDOW_NAME'"

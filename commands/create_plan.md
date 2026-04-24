@@ -54,12 +54,11 @@ You are tasked with creating detailed implementation plans through an interactiv
 
 ## Phase Audit (orchestrated mode only)
 
-Before starting planning, validate `.orchestration.json` in the worktree root is active (not stale from a prior run), then update the phase status:
+Before starting planning, look up the orchestration context for this tmux session (silently exits non-zero if not orchestrated, or the entry is stale), then update the phase status:
 ```bash
 WORKTREE_ROOT="$(git rev-parse --show-toplevel)"
-if bash ${CLAUDE_PLUGIN_ROOT}/scripts/validate-orchestration.sh "$WORKTREE_ROOT"; then
-  STAGE_NUM=$(python3 -c "import json; print(json.load(open('$WORKTREE_ROOT/.orchestration.json'))['stage_number'])")
-  STATUS_FILE=$(python3 -c "import json; d=json.load(open('$WORKTREE_ROOT/.orchestration.json')); import os; print(os.path.join(d['orchestration_dir'], 'status.json'))")
+if CTX=$(bash ${CLAUDE_PLUGIN_ROOT}/scripts/get-orchestration-context.sh "$WORKTREE_ROOT" 2>/dev/null); then
+  eval "$CTX"
   bash ${CLAUDE_PLUGIN_ROOT}/scripts/update-phase-status.sh "$STATUS_FILE" "$STAGE_NUM" create_plan started_at
 fi
 ```
@@ -249,13 +248,11 @@ Once aligned on approach:
 
    After the Task completes, clean up scratch files: `rm -rf ~/.autorun/plans/.scratch/YYYY-MM-DD-description/`
 
-2. **Check for orchestration context**: Before writing the plan, check if `.orchestration.json` exists in the current working directory (the worktree root):
+2. **Check for orchestration context**: Before writing the plan, look up the orchestration context for this tmux session:
    ```bash
-   if [[ -f "$(pwd)/.orchestration.json" ]]; then
-     # Read the orchestration metadata
-     ORCH_DATA=$(cat "$(pwd)/.orchestration.json")
-     # Extract chain_on_complete value
-     CHAIN_ON_COMPLETE=$(python3 -c "import json; print(json.load(open('$(pwd)/.orchestration.json'))['chain_on_complete'])")
+   if CTX=$(bash ${CLAUDE_PLUGIN_ROOT}/scripts/get-orchestration-context.sh "$(pwd)" 2>/dev/null); then
+     eval "$CTX"
+     # CHAIN_ON_COMPLETE is now populated from the registered entry
    fi
    ```
    If found, the plan is part of a staged orchestration. You MUST include `chain_on_complete` in the plan's YAML frontmatter (see template below).
@@ -411,14 +408,13 @@ Then chain directly using Bash (do NOT spawn a Task for this — run it yourself
    SESSION_ARG=""
    WINDOW_NAME="ip"
    CLOSE_ARG=""
-   if [[ -f "$WORKTREE_ROOT/.orchestration.json" ]]; then
-     SESSION_ARG=$(python3 -c "import json; print(json.load(open('$WORKTREE_ROOT/.orchestration.json')).get('session_name', ''))")
-     STAGE_NUM=$(python3 -c "import json; print(json.load(open('$WORKTREE_ROOT/.orchestration.json'))['stage_number'])")
+   if CTX=$(bash ${CLAUDE_PLUGIN_ROOT}/scripts/get-orchestration-context.sh "$WORKTREE_ROOT" 2>/dev/null); then
+     eval "$CTX"
+     SESSION_ARG="$SESSION_NAME"
      WINDOW_NAME="s${STAGE_NUM}-ip"
      CLOSE_ARG="close"
 
      # Update phase status
-     STATUS_FILE=$(python3 -c "import json; d=json.load(open('$WORKTREE_ROOT/.orchestration.json')); import os; print(os.path.join(d['orchestration_dir'], 'status.json'))")
      bash ${CLAUDE_PLUGIN_ROOT}/scripts/update-phase-status.sh "$STATUS_FILE" "$STAGE_NUM" create_plan completed_at
    fi
    echo "Session: '${SESSION_ARG:-<none>}', Window: '$WINDOW_NAME'"

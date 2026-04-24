@@ -19,12 +19,11 @@ You are tasked with implementing an approved technical plan from `~/.autorun/pla
 
 ## Phase Audit (orchestrated mode only)
 
-Before starting implementation, validate `.orchestration.json` in the worktree root is active (not stale from a prior run), then update the phase status:
+Before starting implementation, look up the orchestration context for this tmux session (silently exits non-zero if not orchestrated, or the entry is stale), then update the phase status:
 ```bash
 WORKTREE_ROOT="$(git rev-parse --show-toplevel)"
-if bash ${CLAUDE_PLUGIN_ROOT}/scripts/validate-orchestration.sh "$WORKTREE_ROOT"; then
-  STAGE_NUM=$(python3 -c "import json; print(json.load(open('$WORKTREE_ROOT/.orchestration.json'))['stage_number'])")
-  STATUS_FILE=$(python3 -c "import json; d=json.load(open('$WORKTREE_ROOT/.orchestration.json')); import os; print(os.path.join(d['orchestration_dir'], 'status.json'))")
+if CTX=$(bash ${CLAUDE_PLUGIN_ROOT}/scripts/get-orchestration-context.sh "$WORKTREE_ROOT" 2>/dev/null); then
+  eval "$CTX"
   bash ${CLAUDE_PLUGIN_ROOT}/scripts/update-phase-status.sh "$STATUS_FILE" "$STAGE_NUM" implement started_at
 fi
 ```
@@ -261,11 +260,12 @@ When a phase is complete (all verification passed, progress updated, no human in
 First, determine if there ARE more unchecked phases remaining in the plan. If all phases are complete (every phase checkbox is checked), determine the `chain_on_complete` value:
 
 1. Check the plan's YAML frontmatter for a `chain_on_complete` field
-2. If not found in frontmatter, check `.orchestration.json` in the worktree root as a fallback:
+2. If not found in frontmatter, look up the orchestration context for this tmux session as a fallback:
    ```bash
    WORKTREE_ROOT="$(git rev-parse --show-toplevel)"
-   if [[ -f "$WORKTREE_ROOT/.orchestration.json" ]]; then
-     CHAIN_ON_COMPLETE=$(python3 -c "import json; print(json.load(open('$WORKTREE_ROOT/.orchestration.json')).get('chain_on_complete', ''))")
+   if CTX=$(bash ${CLAUDE_PLUGIN_ROOT}/scripts/get-orchestration-context.sh "$WORKTREE_ROOT" 2>/dev/null); then
+     eval "$CTX"
+     # CHAIN_ON_COMPLETE is now set from the registered entry
    fi
    ```
 
@@ -291,9 +291,9 @@ First, determine if there ARE more unchecked phases remaining in the plan. If al
    SESSION_ARG=""
    WINDOW_NAME="ip-p${NEXT}"
    CLOSE_ARG=""
-   if [[ -f "$WORKTREE_ROOT/.orchestration.json" ]]; then
-     SESSION_ARG=$(python3 -c "import json; print(json.load(open('$WORKTREE_ROOT/.orchestration.json')).get('session_name', ''))")
-     STAGE_NUM=$(python3 -c "import json; print(json.load(open('$WORKTREE_ROOT/.orchestration.json'))['stage_number'])")
+   if CTX=$(bash ${CLAUDE_PLUGIN_ROOT}/scripts/get-orchestration-context.sh "$WORKTREE_ROOT" 2>/dev/null); then
+     eval "$CTX"
+     SESSION_ARG="$SESSION_NAME"
      WINDOW_NAME="s${STAGE_NUM}-ip-p${NEXT}"
      CLOSE_ARG="close"
    fi
@@ -313,14 +313,13 @@ First, determine if there ARE more unchecked phases remaining in the plan. If al
    SESSION_ARG=""
    WINDOW_NAME="merge"
    CLOSE_ARG=""
-   if [[ -f "$WORKTREE_ROOT/.orchestration.json" ]]; then
-     SESSION_ARG=$(python3 -c "import json; print(json.load(open('$WORKTREE_ROOT/.orchestration.json')).get('session_name', ''))")
-     STAGE_NUM=$(python3 -c "import json; print(json.load(open('$WORKTREE_ROOT/.orchestration.json'))['stage_number'])")
+   if CTX=$(bash ${CLAUDE_PLUGIN_ROOT}/scripts/get-orchestration-context.sh "$WORKTREE_ROOT" 2>/dev/null); then
+     eval "$CTX"
+     SESSION_ARG="$SESSION_NAME"
      WINDOW_NAME="s${STAGE_NUM}-merge"
      CLOSE_ARG="close"
 
      # Update phase status — implement is complete
-     STATUS_FILE=$(python3 -c "import json; d=json.load(open('$WORKTREE_ROOT/.orchestration.json')); import os; print(os.path.join(d['orchestration_dir'], 'status.json'))")
      bash ${CLAUDE_PLUGIN_ROOT}/scripts/update-phase-status.sh "$STATUS_FILE" "$STAGE_NUM" implement completed_at
    fi
    echo "Session: '${SESSION_ARG:-<none>}', Window: '$WINDOW_NAME'"
