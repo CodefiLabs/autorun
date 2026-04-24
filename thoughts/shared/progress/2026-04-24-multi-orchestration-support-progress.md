@@ -1,7 +1,8 @@
 ---
 plan: thoughts/shared/plans/2026-04-24-multi-orchestration-support.md
 started: 2026-04-24T21:30:00Z
-status: in_progress
+status: completed
+completed: 2026-04-24T22:15:00Z
 ---
 
 # Implementation Progress: 2026-04-24-multi-orchestration-support
@@ -45,3 +46,26 @@ Migrated all five command files from the old single-object `.orchestration.json`
 - `scripts/validate-orchestration.sh` is now completely unreferenced from `commands/` — safe to `git rm` in Phase 3.
 - `commands/merge.md`: the new cleanup block computes `PROJECT_SLUG` and `SESSION_NAME` just before the if/else so both branches have them in scope; the v2 unregister call is in the non-worktree branch only — the worktree-removal branch sweeps the file as part of `git worktree remove`, no explicit unregister needed.
 - Three commits in Phase 2 (one per logical unit): start.md wiring, pipeline phase wiring, merge.md cleanup.
+
+---
+
+## Phase 3
+
+**Completed**: 2026-04-24T22:15:00Z
+**Status**: COMPLETE
+**Commits**: 710799c
+**Tests**: PASS (4/4 post-delete checks)
+
+### Summary
+
+Deleted `scripts/validate-orchestration.sh` via `git rm`. Pre-delete grep over `commands/` and `scripts/` showed only the script's own `:?Usage:` self-reference — confirming Phase 2 left no callers behind. All four post-delete verifications passed: (1) file no longer exists, (2) zero references in `commands/` or `scripts/`, (3) zero references outside `thoughts/` in any markdown, (4) the three new helpers (`get-`, `register-`, `unregister-orchestration.sh`) remain executable and in place. The v1-to-v2 migration lives entirely inside the new registry helpers; `validate-orchestration.sh` is dead code and its removal completes the cleanup.
+
+### Implementation Complete
+
+The multi-orchestration support refactor is now fully live:
+
+- `.orchestration.json` is a session-keyed v2 registry (`{"version": 2, "orchestrations": {"<session-name>": {...}}}`).
+- Five pipeline commands (`start.md`, `research_codebase.md`, `create_plan.md`, `implement_plan.md`, `merge.md`) look up context via `tmux display-message -p '#S'` + `get-orchestration-context.sh`.
+- `register-orchestration.sh` upserts entries at stage start; `unregister-orchestration.sh` removes them at merge.
+- v1 flat-object files are auto-migrated to v2 on first register, and are silently treated as "not orchestrated" by `get-orchestration-context.sh` if stale — no more staleness-class bugs from the old single-object overwrite pattern.
+- Eight implementation commits across three phases, plus three progress-tracking commits.
