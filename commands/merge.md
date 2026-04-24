@@ -429,7 +429,11 @@ if [ "$(git rev-parse --git-dir)" != "$(git rev-parse --git-common-dir)" ]; then
   git branch -D "$BRANCH" 2>/dev/null
   echo "Worktree cleaned up: $WORKTREE_PATH"
 else
-  echo "Not in a worktree — no cleanup needed"
+  echo "Not in a worktree — skipping worktree removal"
+  if [[ -f "$WORKTREE_PATH/.orchestration.json" ]]; then
+    rm "$WORKTREE_PATH/.orchestration.json"
+    echo ".orchestration.json removed"
+  fi
 fi
 ```
 

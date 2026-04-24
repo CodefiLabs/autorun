@@ -29,10 +29,10 @@ You are tasked with conducting comprehensive research across the codebase to ans
 
 ## Phase Audit (orchestrated mode only)
 
-Before starting research, if `.orchestration.json` exists in the worktree root, update the phase status:
+Before starting research, validate `.orchestration.json` in the worktree root is active (not stale from a prior run), then update the phase status:
 ```bash
 WORKTREE_ROOT="$(git rev-parse --show-toplevel)"
-if [[ -f "$WORKTREE_ROOT/.orchestration.json" ]]; then
+if bash ${CLAUDE_PLUGIN_ROOT}/scripts/validate-orchestration.sh "$WORKTREE_ROOT"; then
   STAGE_NUM=$(python3 -c "import json; print(json.load(open('$WORKTREE_ROOT/.orchestration.json'))['stage_number'])")
   STATUS_FILE=$(python3 -c "import json; d=json.load(open('$WORKTREE_ROOT/.orchestration.json')); import os; print(os.path.join(d['orchestration_dir'], 'status.json'))")
   bash ${CLAUDE_PLUGIN_ROOT}/scripts/update-phase-status.sh "$STATUS_FILE" "$STAGE_NUM" research started_at

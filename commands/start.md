@@ -50,6 +50,12 @@ Before routing, derive a `TASK_SLUG` for meaningful tmux session names:
 
 Use `<phase>-<slug>` as the window name for all non-orchestrated chaining commands (e.g. `cp-make-api-call-bug-report`, `research-fix-login-redirect`, `ip-quick-config-fix`).
 
+**In non-orchestrated mode** (task is not a stage context file), clean up any stale `.orchestration.json` left by a prior orchestration run before chaining — otherwise downstream phases will incorrectly treat this repo as an active orchestration stage:
+```bash
+WORKTREE_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/validate-orchestration.sh "$WORKTREE_ROOT" 2>/dev/null || true
+```
+
 #### QUICK → implement_plan directly
 
 Write a minimal inline plan to `~/.autorun/plans/YYYY-MM-DD-quick-<slug>.md`.
